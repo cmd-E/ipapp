@@ -1,81 +1,57 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"ipapp/packages/ip"
 	"ipapp/packages/logger"
+	"ipapp/packages/printer"
 	"math"
 	"os"
-	"strconv"
-	"strings"
 )
+
+var ip1Str string
+var ip2Str string
+var maskNum int
 
 func init() {
 	logger.InitLogger()
+	flag.StringVar(&ip1Str, "ip1", "", "first ip address")
+	flag.StringVar(&ip2Str, "ip2", "", "second ip address")
+	flag.IntVar(&maskNum, "m", 24, "number of mask (24 by default)")
 }
 
 func main() {
-	args := os.Args[1:]
-	if len(args) < 3 {
-		fmt.Println("Not enough arguments provided")
-		os.Exit(0)
+	flag.Parse()
+	if !ip.IpIsValid(ip1Str) || !ip.IpIsValid(ip2Str) {
+		fmt.Println("One or more ip addresses are invalid")
+		os.Exit(1)
 	}
-	ip1Str := args[0]
-	ip2Str := args[1]
-	maskStr := args[2]
-	if !ipIsValid(ip1Str) || !ipIsValid(ip2Str) {
-		fmt.Println("One or more ip addresses were invalid")
-		os.Exit(2)
+	if maskNum < 0 || maskNum > 32 {
+		fmt.Println("Mask cannot be less than 0 or greater than 32")
+		os.Exit(1)
 	}
-	ip1 := ip.Ip{}
-	ip1.MakeIpDecStruct(ip1Str)
-	ip2 := ip.Ip{}
-	ip2.MakeIpDecStruct(ip2Str)
-	maskNum, err := strconv.Atoi(maskStr)
-	if err != nil {
-		logger.ErrorLogger.Println(err.Error())
-	}
-	mask := ip.Ip{}
-	mask.MakeMask(maskNum)
+	ip1 := ip.ParseIpFromDecimalString(ip1Str)
+	ip2 := ip.ParseIpFromDecimalString(ip2Str)
+	mask := ip.MakeMask(maskNum)
 	const maxBits = 32
 	bitsReservedForHost := maxBits - maskNum
 	numberOfHosts := math.Pow(2, float64(bitsReservedForHost)) - 2
 	numberOfSubnetworks := math.Pow(2, float64(maskNum))
-	logger.InfoLogger.Println("mask", mask)
-	logger.InfoLogger.Println("numberOfHosts", numberOfHosts)
-	logger.InfoLogger.Println("numberOfSubnetworks", numberOfSubnetworks)
-
+	printer.PrintFormatted("Mask in binary representation", mask.GetIpInBin())
+	printer.PrintFormatted("Number of hosts", numberOfHosts)
+	printer.PrintFormatted("Number of subnetworks", numberOfSubnetworks)
+	fmt.Println()
+	fmt.Printf("Examining %s...\n", ip1.GetIpInDec())
 	ExamineNetwork(ip1.GetNetworkPart(maskNum))
+	fmt.Println()
+	fmt.Printf("Examining %s...\n", ip2.GetIpInDec())
 	ExamineNetwork(ip2.GetNetworkPart(maskNum))
-
 }
 
 func ExamineNetwork(networkIp ip.Ip) {
-	minIpInNetwork := networkIp.GetMinIpInNetwork()
-	maxIpInNetwork := networkIp.GetMaxIpInNetwork()
-	broadcastAddress := networkIp.GetBroadcastAddress()
-	logger.InfoLogger.Println("minIpInNetwork", minIpInNetwork)
-	logger.InfoLogger.Println("maxIpInNetwork", maxIpInNetwork)
-	logger.InfoLogger.Println("broadcastAddress", broadcastAddress)
-	logger.InfoLogger.Println("minIpInNetworkBin", minIpInNetwork.GetIpInBin())
-	logger.InfoLogger.Println("maxIpInNetworkBin", maxIpInNetwork.GetIpInBin())
-	logger.InfoLogger.Println("broadcastAddressBin", broadcastAddress.GetIpInBin())
-}
-
-// Only ipv4 adresses are considered valid
-func ipIsValid(ip string) bool {
-	splittedIp := strings.Split(ip, ".")
-	if len(splittedIp) != 4 {
-		return false
-	}
-	for _, v := range splittedIp {
-		ipPart, err := strconv.Atoi(v)
-		if err != nil {
-			return false
-		}
-		if ipPart < 0 || ipPart > 255 {
-			return false
-		}
-	}
-	return true
+	printer.PrintFormatted("Network ip address", networkIp.GetIpInDec())
+	printer.PrintFormatted("Minimal ip address", networkIp.GetMinIpInNetwork(maskNum).GetIpInBin())
+	printer.PrintFormatted("Maximum ip address", networkIp.GetMaxIpInNetwork(maskNum).GetIpInBin())
+	printer.PrintFormatted("Broadcast address", networkIp.GetBroadcastAddress(maskNum).GetIpInBin())
 }
