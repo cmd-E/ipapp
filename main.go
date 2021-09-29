@@ -18,17 +18,23 @@ func init() {
 	logger.InitLogger()
 	flag.StringVar(&ip1Str, "ip1", "", "first ip address")
 	flag.StringVar(&ip2Str, "ip2", "", "second ip address")
-	flag.IntVar(&maskNum, "m", 24, "number of mask (24 by default)")
+	flag.IntVar(&maskNum, "m", 24, "mask number (24 by default)")
 }
 
 func main() {
 	flag.Parse()
+	if !flag.Parsed() {
+		flag.Usage()
+		os.Exit(1)
+	}
 	if !ip.IpIsValid(ip1Str) || !ip.IpIsValid(ip2Str) {
 		fmt.Println("One or more ip addresses are invalid")
+		flag.Usage()
 		os.Exit(1)
 	}
 	if maskNum < 0 || maskNum > 32 {
 		fmt.Println("Mask cannot be less than 0 or greater than 32")
+		flag.Usage()
 		os.Exit(1)
 	}
 	ip1 := ip.ParseIpFromDecimalString(ip1Str)
