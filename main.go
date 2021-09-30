@@ -56,8 +56,15 @@ func main() {
 }
 
 func ExamineNetwork(networkIp ip.Ip) {
-	printer.PrintFormatted("Network ip address", networkIp.GetIpInDec())
-	printer.PrintFormatted("Minimal ip address", networkIp.GetMinIpInNetwork(maskNum).GetIpInBin())
-	printer.PrintFormatted("Maximum ip address", networkIp.GetMaxIpInNetwork(maskNum).GetIpInBin())
-	printer.PrintFormatted("Broadcast address", networkIp.GetBroadcastAddress(maskNum).GetIpInBin())
+	printer.PrintFormatted("Network ip address DEC", networkIp.GetIpInDec())
+	printer.PrintFormatted("Network ip address BIN", networkIp.GetIpInBin())
+	fmt.Println()
+	printer.PrintFormatted("Minimal ip address DEC", networkIp.GetMinIpInNetwork(maskNum).GetIpInDec())
+	printer.PrintFormatted("Minimal ip address BIN", networkIp.GetMinIpInNetwork(maskNum).GetIpInBin())
+	fmt.Println()
+	printer.PrintFormatted("Maximum ip address DEC", networkIp.GetMaxIpInNetwork(maskNum).GetIpInDec())
+	printer.PrintFormatted("Maximum ip address BIN", networkIp.GetMaxIpInNetwork(maskNum).GetIpInBin())
+	fmt.Println()
+	printer.PrintFormatted("Broadcast address DEC", networkIp.GetBroadcastAddress(maskNum).GetIpInDec())
+	printer.PrintFormatted("Broadcast address BIN", networkIp.GetBroadcastAddress(maskNum).GetIpInBin())
 }
