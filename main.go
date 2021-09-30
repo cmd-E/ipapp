@@ -38,7 +38,9 @@ func main() {
 		os.Exit(1)
 	}
 	ip1 := ip.ParseIpFromDecimalString(ip1Str)
+	ip1.MaskNum = maskNum
 	ip2 := ip.ParseIpFromDecimalString(ip2Str)
+	ip2.MaskNum = maskNum
 	mask := ip.MakeMask(maskNum)
 	const maxBits = 32
 	bitsReservedForHost := maxBits - maskNum
@@ -49,22 +51,22 @@ func main() {
 	printer.PrintFormatted("Number of subnetworks", numberOfSubnetworks)
 	fmt.Println()
 	fmt.Printf("Examining %s...\n", ip1.GetIpInDec())
-	ExamineNetwork(ip1.GetNetworkPart(maskNum))
+	ExamineNetwork(ip1.GetNetworkPart())
 	fmt.Println()
 	fmt.Printf("Examining %s...\n", ip2.GetIpInDec())
-	ExamineNetwork(ip2.GetNetworkPart(maskNum))
+	ExamineNetwork(ip2.GetNetworkPart())
 }
 
 func ExamineNetwork(networkIp ip.Ip) {
 	printer.PrintFormatted("Network ip address DEC", networkIp.GetIpInDec())
 	printer.PrintFormatted("Network ip address BIN", networkIp.GetIpInBin())
 	fmt.Println()
-	printer.PrintFormatted("Minimal ip address DEC", networkIp.GetMinIpInNetwork(maskNum).GetIpInDec())
-	printer.PrintFormatted("Minimal ip address BIN", networkIp.GetMinIpInNetwork(maskNum).GetIpInBin())
+	printer.PrintFormatted("Minimal ip address DEC", networkIp.GetMinIpInNetwork().GetIpInDec())
+	printer.PrintFormatted("Minimal ip address BIN", networkIp.GetMinIpInNetwork().GetIpInBin())
 	fmt.Println()
-	printer.PrintFormatted("Maximum ip address DEC", networkIp.GetMaxIpInNetwork(maskNum).GetIpInDec())
-	printer.PrintFormatted("Maximum ip address BIN", networkIp.GetMaxIpInNetwork(maskNum).GetIpInBin())
+	printer.PrintFormatted("Maximum ip address DEC", networkIp.GetMaxIpInNetwork().GetIpInDec())
+	printer.PrintFormatted("Maximum ip address BIN", networkIp.GetMaxIpInNetwork().GetIpInBin())
 	fmt.Println()
-	printer.PrintFormatted("Broadcast address DEC", networkIp.GetBroadcastAddress(maskNum).GetIpInDec())
-	printer.PrintFormatted("Broadcast address BIN", networkIp.GetBroadcastAddress(maskNum).GetIpInBin())
+	printer.PrintFormatted("Broadcast address DEC", networkIp.GetBroadcastAddress().GetIpInDec())
+	printer.PrintFormatted("Broadcast address BIN", networkIp.GetBroadcastAddress().GetIpInBin())
 }

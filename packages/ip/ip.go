@@ -9,10 +9,11 @@ import (
 var numOfDots = 0 // compensate indexes
 
 type Ip struct {
-	Part1 int
-	Part2 int
-	Part3 int
-	Part4 int
+	Part1   int
+	Part2   int
+	Part3   int
+	Part4   int
+	MaskNum int
 }
 
 // Only ipv4 adresses are considered valid
@@ -83,10 +84,10 @@ func MakeMask(maskNum int) Ip {
 	return mask
 }
 
-func (ip Ip) GetNetworkPart(maskNum int) Ip {
+func (ip Ip) GetNetworkPart() Ip {
 	binIp := ip.GetIpInBin()
-	binIp = binIp[:maskNum+numOfDots] // TODO: check for out of range
-	for i := maskNum + 1; i <= 32; i++ {
+	binIp = binIp[:ip.MaskNum+numOfDots] // TODO: check for out of range
+	for i := ip.MaskNum + 1; i <= 32; i++ {
 		binIp += "0"
 		if i == 8 || i == 16 || i == 24 {
 			binIp += "."
@@ -102,12 +103,13 @@ func (ip Ip) GetNetworkPart(maskNum int) Ip {
 	networkIp.Part2 = int(t2)
 	networkIp.Part3 = int(t3)
 	networkIp.Part4 = int(t4)
+	networkIp.MaskNum = ip.MaskNum
 	return networkIp
 }
 
-func (ip Ip) GetMinIpInNetwork(mask int) Ip {
+func (ip Ip) GetMinIpInNetwork() Ip {
 	ipSplit := []rune(ip.GetIpInBin())
-	for i := mask + numOfDots; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i -= 1
 			continue
@@ -118,9 +120,9 @@ func (ip Ip) GetMinIpInNetwork(mask int) Ip {
 	return ParseIpFromBinString(string(ipSplit))
 }
 
-func (ip Ip) GetMaxIpInNetwork(mask int) Ip {
+func (ip Ip) GetMaxIpInNetwork() Ip {
 	ipSplit := []rune(ip.GetIpInBin())
-	for i := mask + numOfDots; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i -= 1
 			continue
@@ -131,9 +133,9 @@ func (ip Ip) GetMaxIpInNetwork(mask int) Ip {
 	return ParseIpFromBinString(string(ipSplit))
 }
 
-func (ip Ip) GetBroadcastAddress(mask int) Ip {
+func (ip Ip) GetBroadcastAddress() Ip {
 	ipSplit := []rune(ip.GetIpInBin())
-	for i := mask + numOfDots; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i -= 1
 			continue
@@ -149,4 +151,8 @@ func (ip Ip) GetIpInBin() string {
 
 func (ip Ip) GetIpInDec() string {
 	return fmt.Sprintf("%d.%d.%d.%d", ip.Part1, ip.Part2, ip.Part3, ip.Part4)
+}
+
+func (ip Ip) AreInTheSameNetwork(ipToCompare Ip) bool {
+	return ip.GetNetworkPart() == ipToCompare.GetNetworkPart()
 }
