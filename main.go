@@ -55,6 +55,8 @@ func main() {
 	fmt.Println()
 	fmt.Printf("Examining %s...\n", ip2.GetIpInDec())
 	ExamineNetwork(ip2.GetNetworkPart())
+	fmt.Println()
+	printer.PrintFormatted("IPs are in the same networks:", ip1.AreInTheSameNetwork(ip2))
 }
 
 func ExamineNetwork(networkIp ip.Ip) {
