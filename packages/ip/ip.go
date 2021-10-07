@@ -34,13 +34,14 @@ func IpIsValid(ip string) bool {
 	return true
 }
 
-func ParseIpFromDecimalString(ipStr string) Ip {
+func ParseIpFromDecimalString(ipStr string, maskNum int) Ip {
 	var ip Ip
 	splittedIp := strings.Split(ipStr, ".")
 	ip.Part1, _ = strconv.Atoi(splittedIp[0])
 	ip.Part2, _ = strconv.Atoi(splittedIp[1])
 	ip.Part3, _ = strconv.Atoi(splittedIp[2])
 	ip.Part4, _ = strconv.Atoi(splittedIp[3])
+	ip.MaskNum = maskNum
 	return ip
 }
 
@@ -155,4 +156,42 @@ func (ip Ip) GetIpInDec() string {
 
 func (ip Ip) AreInTheSameNetwork(ipToCompare Ip) bool {
 	return ip.GetNetworkPart() == ipToCompare.GetNetworkPart()
+}
+
+// Array of IpsInNetwork structs
+type IINArray []IpsInNetwork
+
+func (arr IINArray) networkIpIsInTheList(networkIpToCheck Ip) bool {
+	for _, v := range arr {
+		if v.Network == networkIpToCheck {
+			return true
+		}
+	}
+	return false
+}
+
+func (arr *IINArray) insertToExistingNetworkIp(networkIp, ipToInsert Ip) {
+	for i, v := range *arr {
+		if v.Network == networkIp {
+			v.IPs = append(v.IPs, ipToInsert)
+			(*arr)[i].IPs = v.IPs
+		}
+	}
+}
+
+type IpsInNetwork struct {
+	Network Ip
+	IPs     []Ip
+}
+
+func SortIpsByNetworks(ips []Ip) IINArray {
+	var networksIps IINArray
+	for _, ip := range ips {
+		if networksIps.networkIpIsInTheList(ip.GetNetworkPart()) {
+			networksIps.insertToExistingNetworkIp(ip.GetNetworkPart(), ip)
+		} else {
+			networksIps = append(networksIps, IpsInNetwork{Network: ip.GetNetworkPart(), IPs: []Ip{ip}})
+		}
+	}
+	return networksIps
 }

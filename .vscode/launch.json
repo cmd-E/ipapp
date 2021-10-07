@@ -10,7 +10,7 @@
             "name": "Debug ipapp",
             "mode": "debug",
             "program": "${workspaceFolder}/main.go",
-            "args": ["-ip1=192.152.10.36", "-ip2=192.152.10.38", "-m=30"]
+            "args": ["-m=30", "192.152.10.36", "192.152.10.38"]
         }
     ]
 }
