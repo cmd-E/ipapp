@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-var numOfDots = 0 // compensate indexes
-
 // IP Represents IPv4 address
 type IP struct {
 	Part1   int
@@ -74,7 +72,6 @@ func ConvertMask(maskNum int) IP {
 		}
 		if i == 8 || i == 16 || i == 24 {
 			ipPart += "."
-			numOfDots++
 		}
 	}
 	splittedIP := strings.Split(ipPart, ".")
@@ -91,24 +88,12 @@ func ConvertMask(maskNum int) IP {
 
 // GetNetworkPart returns network of ip address
 func (ip IP) GetNetworkPart() IP {
-	binIP := ip.GetIPInBin()
-	binIP = binIP[:ip.MaskNum+numOfDots] // TODO: check for out of range
-	for i := ip.MaskNum + 1; i <= 32; i++ {
-		binIP += "0"
-		if i == 8 || i == 16 || i == 24 {
-			binIP += "."
-		}
-	}
-	splittedIP := strings.Split(binIP, ".")
 	var networkIP IP
-	t1, _ := strconv.ParseInt(splittedIP[0], 2, 32)
-	t2, _ := strconv.ParseInt(splittedIP[1], 2, 32)
-	t3, _ := strconv.ParseInt(splittedIP[2], 2, 32)
-	t4, _ := strconv.ParseInt(splittedIP[3], 2, 32)
-	networkIP.Part1 = int(t1)
-	networkIP.Part2 = int(t2)
-	networkIP.Part3 = int(t3)
-	networkIP.Part4 = int(t4)
+	mask := ConvertMask(ip.MaskNum)
+	networkIP.Part1 = ip.Part1 & mask.Part1
+	networkIP.Part2 = ip.Part2 & mask.Part2
+	networkIP.Part3 = ip.Part3 & mask.Part3
+	networkIP.Part4 = ip.Part4 & mask.Part4
 	networkIP.MaskNum = ip.MaskNum
 	return networkIP
 }
@@ -116,10 +101,11 @@ func (ip IP) GetNetworkPart() IP {
 // GetMinIPInNetwork returns minimum address in network
 func (ip IP) GetMinIPInNetwork() IP {
 	ipSplit := []rune(ip.GetIPInBin())
-	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
+	numOfDots := 0
+	for i := ip.MaskNum; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
-			i--
-			continue
+			i++
+			numOfDots++
 		}
 		ipSplit[i] = '0'
 	}
@@ -130,10 +116,11 @@ func (ip IP) GetMinIPInNetwork() IP {
 // GetMaxIPInNetwork returns maximum address in network
 func (ip IP) GetMaxIPInNetwork() IP {
 	ipSplit := []rune(ip.GetIPInBin())
-	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
+	numOfDots := 0
+	for i := ip.MaskNum; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
-			i--
-			continue
+			i++
+			numOfDots++
 		}
 		ipSplit[i] = '1'
 	}
@@ -144,10 +131,11 @@ func (ip IP) GetMaxIPInNetwork() IP {
 // GetBroadcastAddress returns broadcast address of the network
 func (ip IP) GetBroadcastAddress() IP {
 	ipSplit := []rune(ip.GetIPInBin())
-	for i := ip.MaskNum + numOfDots; i < 32+numOfDots; i++ {
+	numOfDots := 0
+	for i := ip.MaskNum; i < 32+numOfDots; i++ {
 		if ipSplit[i] == '.' {
-			i--
-			continue
+			i++
+			numOfDots++
 		}
 		ipSplit[i] = '1'
 	}
@@ -163,10 +151,6 @@ func (ip IP) GetIPInBin() string {
 func (ip IP) GetIPInDec() string {
 	return fmt.Sprintf("%d.%d.%d.%d", ip.Part1, ip.Part2, ip.Part3, ip.Part4)
 }
-
-// func (ip IP) AreInTheSameNetwork(ipToCompare IP) bool {
-// 	return ip.GetNetworkPart() == ipToCompare.GetNetworkPart()
-// }
 
 // IINArray Array of IpsInNetwork structs
 type IINArray []IpsInNetwork
