@@ -28,7 +28,6 @@ func main() {
 	providedIps = utils.FilterOutFlags(providedIps)
 	if len(providedIps) < 1 {
 		fmt.Println("Ip addresses weren't provided")
-		flag.Usage()
 		os.Exit(1)
 	}
 	invalidIps := ""

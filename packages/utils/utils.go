@@ -22,3 +22,16 @@ func isInTheFlagsList(argToCheck string) bool {
 	}
 	return false
 }
+
+// NumberOfDotsBeforeMaskDivision helps to adjust number of loops
+func NumberOfDotsBeforeMaskDivision(ip string, mask int) int {
+	count := 0
+	numOfDots := 0
+	for i := 0; i <= mask+numOfDots; i++ {
+		if ip[i] == '.' {
+			count++
+			numOfDots++
+		}
+	}
+	return count
+}

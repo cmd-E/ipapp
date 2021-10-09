@@ -2,6 +2,7 @@ package ip
 
 import (
 	"fmt"
+	"ipapp/packages/utils"
 	"strconv"
 	"strings"
 )
@@ -101,8 +102,9 @@ func (ip IP) GetNetworkPart() IP {
 // GetMinIPInNetwork returns minimum address in network
 func (ip IP) GetMinIPInNetwork() IP {
 	ipSplit := []rune(ip.GetIPInBin())
+	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
 	numOfDots := 0
-	for i := ip.MaskNum; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i++
 			numOfDots++
@@ -116,8 +118,9 @@ func (ip IP) GetMinIPInNetwork() IP {
 // GetMaxIPInNetwork returns maximum address in network
 func (ip IP) GetMaxIPInNetwork() IP {
 	ipSplit := []rune(ip.GetIPInBin())
+	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
 	numOfDots := 0
-	for i := ip.MaskNum; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i++
 			numOfDots++
@@ -131,8 +134,9 @@ func (ip IP) GetMaxIPInNetwork() IP {
 // GetBroadcastAddress returns broadcast address of the network
 func (ip IP) GetBroadcastAddress() IP {
 	ipSplit := []rune(ip.GetIPInBin())
+	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
 	numOfDots := 0
-	for i := ip.MaskNum; i < 32+numOfDots; i++ {
+	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i++
 			numOfDots++
