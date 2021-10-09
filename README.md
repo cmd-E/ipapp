@@ -1,7 +1,7 @@
 # ipapp
 Application designed for analyzing ip addresses
 
-![usage_example](https://user-images.githubusercontent.com/49339376/136645464-1d760ac7-36e3-4dca-bc5e-d8dbeef0c749.png)
+![изображение](https://user-images.githubusercontent.com/49339376/136646568-cbd6768b-8097-4697-bdad-62562c3b5e7c.png)
 
 
 ## Usage
