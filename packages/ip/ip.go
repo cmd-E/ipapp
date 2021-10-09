@@ -104,6 +104,9 @@ func (ip IP) GetMinIPInNetwork() IP {
 	ipSplit := []rune(ip.GetIPInBin())
 	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
 	numOfDots := 0
+	if ip.MaskNum == 32 {
+		return ip
+	}
 	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
 		if ipSplit[i] == '.' {
 			i++
@@ -111,7 +114,9 @@ func (ip IP) GetMinIPInNetwork() IP {
 		}
 		ipSplit[i] = '0'
 	}
-	ipSplit[len(ipSplit)-1] = '1'
+	if ip.MaskNum < 31 {
+		ipSplit[len(ipSplit)-1] = '1'
+	}
 	return ParseIPFromBinString(string(ipSplit))
 }
 
@@ -127,7 +132,9 @@ func (ip IP) GetMaxIPInNetwork() IP {
 		}
 		ipSplit[i] = '1'
 	}
-	ipSplit[len(ipSplit)-1] = '0'
+	if ip.MaskNum < 31 {
+		ipSplit[len(ipSplit)-1] = '0'
+	}
 	return ParseIPFromBinString(string(ipSplit))
 }
 

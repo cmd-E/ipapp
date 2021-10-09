@@ -27,7 +27,7 @@ func isInTheFlagsList(argToCheck string) bool {
 func NumberOfDotsBeforeMaskDivision(ip string, mask int) int {
 	count := 0
 	numOfDots := 0
-	for i := 0; i <= mask+numOfDots; i++ {
+	for i := 0; i <= mask+numOfDots && i < len(ip); i++ {
 		if ip[i] == '.' {
 			count++
 			numOfDots++

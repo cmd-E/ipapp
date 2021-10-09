@@ -57,6 +57,9 @@ func main() {
 	bitsReservedForHost := maxBits - maskNum
 	const numberOfReservedIps = 2
 	numberOfHosts := math.Pow(2, float64(bitsReservedForHost)) - numberOfReservedIps
+	if bitsReservedForHost < 2 {
+		numberOfHosts = 0
+	}
 	numberOfSubnetworks := math.Pow(2, float64(maskNum))
 	printer.PrintFormatted("Mask in binary representation", ip.ConvertMask(maskNum).GetIPInBin())
 	printer.PrintFormatted("Number of hosts", numberOfHosts)
