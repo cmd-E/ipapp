@@ -1,86 +1,95 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"ipapp/packages/ip"
-	"ipapp/packages/logger"
-	"ipapp/packages/printer"
-	"ipapp/packages/utils"
-	"math"
 	"os"
 )
 
-var maskNum int
+func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
-func init() {
-	logger.InitLogger()
-	flag.IntVar(&maskNum, "m", 24, "mask number (24 by default)")
-}
-
-func main() {
-	flag.Parse()
-	if !flag.Parsed() {
-		flag.Usage()
-		os.Exit(1)
+// run owns its flags and output streams so invocations can be tested independently.
+func run(args []string, stdout, stderr io.Writer) int {
+	options := flag.NewFlagSet("ipapp", flag.ContinueOnError)
+	prefix := options.Int("m", 24, "IPv4 prefix length (0-32; default 24)")
+	// Flag parse errors may contain user-controlled control characters. Render the
+	// returned error with quoting instead of echoing the parser's raw diagnostics.
+	options.SetOutput(io.Discard)
+	if err := options.Parse(args); err != nil {
+		options.SetOutput(stderr)
+		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintln(stderr, "Usage: ipapp [-m prefix] IPv4 [IPv4 ...]")
+			options.PrintDefaults()
+			return 0
+		}
+		fmt.Fprintf(stderr, "Invalid arguments: %q\n", err.Error())
+		return 2
 	}
-	providedIps := os.Args[1:]
-	providedIps = utils.FilterOutFlags(providedIps)
-	if len(providedIps) < 1 {
-		fmt.Println("Ip addresses weren't provided")
-		os.Exit(1)
+	mask, err := ip.ConvertMask(*prefix)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 2
 	}
-	invalidIps := ""
-	for i := 0; i < len(providedIps); i++ {
-		if !ip.IsValid(providedIps[i]) {
-			invalidIps += fmt.Sprintf("%s\n", providedIps[i])
-			providedIps = append(providedIps[:i], providedIps[i+1:]...) // TODO: check for out of range
-			i--
+	if options.NArg() == 0 {
+		fmt.Fprintln(stderr, "IP addresses weren't provided")
+		return 1
+	}
+	addresses := make([]ip.IP, 0, options.NArg())
+	exitCode := 0
+	for _, text := range options.Args() {
+		address, err := ip.ParseIPFromDecimalString(text, *prefix)
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			exitCode = 1
+			continue
+		}
+		addresses = append(addresses, address)
+	}
+	if len(addresses) == 0 {
+		fmt.Fprintln(stderr, "No IPs to examine")
+		return 1
+	}
+	output := bufio.NewWriter(stdout)
+	printFormatted(output, "Mask in binary representation", mask.GetIPInBin())
+	printFormatted(output, "Number of hosts", addresses[0].HostCount())
+	printFormatted(output, "Number of subnetworks", uint64(1)<<uint(*prefix))
+	fmt.Fprintln(output)
+	for _, address := range addresses {
+		fmt.Fprintf(output, "Examining %s...\n", address.GetIPInDec())
+		examineNetwork(output, address.GetNetworkPart())
+		fmt.Fprintln(output)
+	}
+	for _, group := range ip.SortIpsByNetworks(addresses) {
+		fmt.Fprintf(output, "Ips in %s network:\n", group.Network.GetIPInDec())
+		for _, address := range group.IPs {
+			fmt.Fprintln(output, address.GetIPInDec())
 		}
 	}
-	if len(invalidIps) != 0 {
-		fmt.Printf("Some of the provided IPs are invalid:\n%s", invalidIps)
+	if err := output.Flush(); err != nil {
+		fmt.Fprintf(stderr, "Cannot write report: %v\n", err)
+		return 1
 	}
-	if len(providedIps) == 0 {
-		fmt.Println("No IPs to examine")
-		os.Exit(0)
-	}
-	if maskNum < 0 || maskNum > 32 {
-		fmt.Println("Mask cannot be less than 0 or greater than 32")
-		os.Exit(1)
-	}
-	var ips []ip.IP
-	for _, ipDecStr := range providedIps {
-		ips = append(ips, ip.ParseIPFromDecimalString(ipDecStr, maskNum))
-	}
-	const maxBits = 32
-	bitsReservedForHost := maxBits - maskNum
-	const numberOfReservedIps = 2
-	numberOfHosts := math.Pow(2, float64(bitsReservedForHost)) - numberOfReservedIps
-	if bitsReservedForHost < 2 {
-		numberOfHosts = 0
-	}
-	numberOfSubnetworks := math.Pow(2, float64(maskNum))
-	printer.PrintFormatted("Mask in binary representation", ip.ConvertMask(maskNum).GetIPInBin())
-	printer.PrintFormatted("Number of hosts", numberOfHosts)
-	printer.PrintFormatted("Number of subnetworks", numberOfSubnetworks)
-	fmt.Println()
-	for _, ip := range ips {
-		fmt.Printf("Examining %s...\n", ip.GetIPInDec())
-		examineNetwork(ip.GetNetworkPart())
-		fmt.Println()
-	}
-	for _, v := range ip.SortIpsByNetworks(ips) {
-		fmt.Printf("Ips in %s network:\n", v.Network.GetIPInDec())
-		for _, ip := range v.IPs {
-			fmt.Println(ip.GetIPInDec())
-		}
-	}
+	return exitCode
 }
 
-func examineNetwork(networkIP ip.IP) {
-	printer.PrintFormatted("Network ip address DEC | BIN", fmt.Sprintf("%s | %s", networkIP.GetIPInDec(), networkIP.GetIPInBin()))
-	printer.PrintFormatted("Minimum ip address DEC | BIN", fmt.Sprintf("%s | %s", networkIP.GetMinIPInNetwork().GetIPInDec(), networkIP.GetMinIPInNetwork().GetIPInBin()))
-	printer.PrintFormatted("Maximum ip address DEC | BIN", fmt.Sprintf("%s | %s", networkIP.GetMaxIPInNetwork().GetIPInDec(), networkIP.GetMaxIPInNetwork().GetIPInBin()))
-	printer.PrintFormatted("Broadcast address  DEC | BIN", fmt.Sprintf("%s | %s", networkIP.GetBroadcastAddress().GetIPInDec(), networkIP.GetBroadcastAddress().GetIPInBin()))
+func printFormatted(output io.Writer, definition string, value interface{}) {
+	fmt.Fprintf(output, "%-29s %v\n", definition, value)
+}
+
+func examineNetwork(output io.Writer, network ip.IP) {
+	format := func(address ip.IP) string {
+		return fmt.Sprintf("%s | %s", address.GetIPInDec(), address.GetIPInBin())
+	}
+	printFormatted(output, "Network ip address DEC | BIN", format(network))
+	printFormatted(output, "Minimum ip address DEC | BIN", format(network.GetMinIPInNetwork()))
+	printFormatted(output, "Maximum ip address DEC | BIN", format(network.GetMaxIPInNetwork()))
+	if network.PrefixLength() < 31 {
+		printFormatted(output, "Broadcast address  DEC | BIN", format(network.GetBroadcastAddress()))
+	} else {
+		printFormatted(output, "Broadcast address  DEC | BIN", "N/A (no directed broadcast for /31 or /32)")
+	}
 }

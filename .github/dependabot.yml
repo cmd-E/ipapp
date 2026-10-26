@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # There are no third-party Go modules. Add gomod updates if that changes.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

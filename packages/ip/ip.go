@@ -1,204 +1,149 @@
+// Package ip implements validated IPv4 subnet arithmetic without I/O.
 package ip
 
 import (
+	"encoding/binary"
 	"fmt"
-	"ipapp/packages/utils"
-	"strconv"
+	"net/netip"
 	"strings"
 )
 
-// IP Represents IPv4 address
+// IP holds an IPv4 address and its prefix length. Its zero value is 0.0.0.0/0.
+// Private fields prevent octets and prefixes from becoming invalid after parsing.
 type IP struct {
-	Part1   int
-	Part2   int
-	Part3   int
-	Part4   int
-	MaskNum int
+	address uint32
+	prefix  uint8
 }
 
-// IsValid checks if adresses is ipv4
-func IsValid(ip string) bool {
-	splittedIP := strings.Split(ip, ".")
-	if len(splittedIP) != 4 {
-		return false
+// IsValid accepts strict, dotted-decimal IPv4, without signs or leading zeroes.
+func IsValid(text string) bool {
+	_, err := ParseIPFromDecimalString(text, 0)
+	return err == nil
+}
+
+// ParseIPFromDecimalString validates both the address and the prefix length.
+func ParseIPFromDecimalString(text string, prefix int) (IP, error) {
+	if err := validatePrefix(prefix); err != nil {
+		return IP{}, err
 	}
-	for _, v := range splittedIP {
-		ipPart, err := strconv.Atoi(v)
-		if err != nil {
-			return false
-		}
-		if ipPart < 0 || ipPart > 255 {
-			return false
-		}
+	address, err := netip.ParseAddr(text)
+	if err != nil || !address.Is4() {
+		return IP{}, fmt.Errorf("invalid IPv4 address %q", text)
 	}
-	return true
+	octets := address.As4()
+	return IP{address: binary.BigEndian.Uint32(octets[:]), prefix: uint8(prefix)}, nil
 }
 
-// ParseIPFromDecimalString parses ip from string ip in decimal format
-func ParseIPFromDecimalString(ipStr string, maskNum int) IP {
-	var ip IP
-	splittedIP := strings.Split(ipStr, ".")
-	ip.Part1, _ = strconv.Atoi(splittedIP[0])
-	ip.Part2, _ = strconv.Atoi(splittedIP[1])
-	ip.Part3, _ = strconv.Atoi(splittedIP[2])
-	ip.Part4, _ = strconv.Atoi(splittedIP[3])
-	ip.MaskNum = maskNum
-	return ip
-}
-
-// ParseIPFromBinString parses ip from string ip in binary format
-func ParseIPFromBinString(ipStr string) IP {
-	var ip IP
-	splittedIP := strings.Split(ipStr, ".")
-	t1, _ := strconv.ParseInt(splittedIP[0], 2, 32)
-	t2, _ := strconv.ParseInt(splittedIP[1], 2, 32)
-	t3, _ := strconv.ParseInt(splittedIP[2], 2, 32)
-	t4, _ := strconv.ParseInt(splittedIP[3], 2, 32)
-	ip.Part1 = int(t1)
-	ip.Part2 = int(t2)
-	ip.Part3 = int(t3)
-	ip.Part4 = int(t4)
-	return ip
-}
-
-// ConvertMask converts mask from number to binary representation
-func ConvertMask(maskNum int) IP {
-	var mask IP
-	var ipPart string
-	for i := 1; i <= 32; i++ {
-		if i <= maskNum {
-			ipPart += "1"
-		} else {
-			ipPart += "0"
+// ParseIPFromBinString accepts four eight-bit octets. The returned prefix is /0,
+// as in the original binary parser; subnet methods preserve their input prefix.
+func ParseIPFromBinString(text string) (IP, error) {
+	octets := strings.Split(text, ".")
+	if len(octets) != 4 {
+		return IP{}, fmt.Errorf("invalid binary IPv4 address %q", text)
+	}
+	var value uint32
+	for _, octet := range octets {
+		if len(octet) != 8 {
+			return IP{}, fmt.Errorf("invalid binary IPv4 octet %q", octet)
 		}
-		if i == 8 || i == 16 || i == 24 {
-			ipPart += "."
+		for _, bit := range octet {
+			if bit != '0' && bit != '1' {
+				return IP{}, fmt.Errorf("invalid binary IPv4 octet %q", octet)
+			}
+			value = value<<1 | uint32(bit-'0')
 		}
 	}
-	splittedIP := strings.Split(ipPart, ".")
-	t1, _ := strconv.ParseInt(splittedIP[0], 2, 32)
-	t2, _ := strconv.ParseInt(splittedIP[1], 2, 32)
-	t3, _ := strconv.ParseInt(splittedIP[2], 2, 32)
-	t4, _ := strconv.ParseInt(splittedIP[3], 2, 32)
-	mask.Part1 = int(t1)
-	mask.Part2 = int(t2)
-	mask.Part3 = int(t3)
-	mask.Part4 = int(t4)
-	return mask
+	return IP{address: value}, nil
 }
 
-// GetNetworkPart returns network of ip address
-func (ip IP) GetNetworkPart() IP {
-	var networkIP IP
-	mask := ConvertMask(ip.MaskNum)
-	networkIP.Part1 = ip.Part1 & mask.Part1
-	networkIP.Part2 = ip.Part2 & mask.Part2
-	networkIP.Part3 = ip.Part3 & mask.Part3
-	networkIP.Part4 = ip.Part4 & mask.Part4
-	networkIP.MaskNum = ip.MaskNum
-	return networkIP
-}
-
-// GetMinIPInNetwork returns minimum address in network
-func (ip IP) GetMinIPInNetwork() IP {
-	ipSplit := []rune(ip.GetIPInBin())
-	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
-	numOfDots := 0
-	if ip.MaskNum == 32 {
-		return ip
+func validatePrefix(prefix int) error {
+	if prefix < 0 || prefix > 32 {
+		return fmt.Errorf("prefix length must be between 0 and 32, got %d", prefix)
 	}
-	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
-		if ipSplit[i] == '.' {
-			i++
-			numOfDots++
-		}
-		ipSplit[i] = '0'
-	}
-	if ip.MaskNum < 31 {
-		ipSplit[len(ipSplit)-1] = '1'
-	}
-	return ParseIPFromBinString(string(ipSplit))
+	return nil
 }
 
-// GetMaxIPInNetwork returns maximum address in network
-func (ip IP) GetMaxIPInNetwork() IP {
-	ipSplit := []rune(ip.GetIPInBin())
-	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
-	numOfDots := 0
-	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
-		if ipSplit[i] == '.' {
-			i++
-			numOfDots++
-		}
-		ipSplit[i] = '1'
+func maskBits(prefix uint8) uint32 { return ^uint32(0) << (32 - uint(prefix)) }
+
+// ConvertMask returns the dotted IPv4 mask for a validated prefix length.
+func ConvertMask(prefix int) (IP, error) {
+	if err := validatePrefix(prefix); err != nil {
+		return IP{}, err
 	}
-	if ip.MaskNum < 31 {
-		ipSplit[len(ipSplit)-1] = '0'
+	return IP{address: maskBits(uint8(prefix)), prefix: uint8(prefix)}, nil
+}
+
+// PrefixLength returns the address's prefix length.
+func (address IP) PrefixLength() int { return int(address.prefix) }
+
+func (address IP) GetNetworkPart() IP {
+	return IP{address: address.address & maskBits(address.prefix), prefix: address.prefix}
+}
+
+// GetMinIPInNetwork returns the first conventional host address, or the first
+// endpoint for a /31 point-to-point link or the sole /32 address.
+func (address IP) GetMinIPInNetwork() IP {
+	first := address.GetNetworkPart()
+	if address.prefix < 31 {
+		first.address++
 	}
-	return ParseIPFromBinString(string(ipSplit))
+	return first
 }
 
-// GetBroadcastAddress returns broadcast address of the network
-func (ip IP) GetBroadcastAddress() IP {
-	ipSplit := []rune(ip.GetIPInBin())
-	numOfDotsBeforeMaskDiv := utils.NumberOfDotsBeforeMaskDivision(ip.GetIPInBin(), ip.MaskNum)
-	numOfDots := 0
-	for i := ip.MaskNum + numOfDotsBeforeMaskDiv; i < 32+numOfDotsBeforeMaskDiv+numOfDots; i++ {
-		if ipSplit[i] == '.' {
-			i++
-			numOfDots++
-		}
-		ipSplit[i] = '1'
+func (address IP) GetMaxIPInNetwork() IP {
+	last := address.GetBroadcastAddress()
+	if address.prefix < 31 {
+		last.address--
 	}
-	return ParseIPFromBinString(string(ipSplit))
+	return last
 }
 
-// GetIPInBin returns ip in binary representation
-func (ip IP) GetIPInBin() string {
-	return fmt.Sprintf("%08b.%08b.%08b.%08b", ip.Part1, ip.Part2, ip.Part3, ip.Part4)
+// GetBroadcastAddress returns the inclusive upper subnet boundary. /31 and /32
+// have no directed broadcast: their upper boundary is itself an endpoint.
+func (address IP) GetBroadcastAddress() IP {
+	return IP{address: address.address | ^maskBits(address.prefix), prefix: address.prefix}
 }
 
-// GetIPInDec returns ip in decimal representation
-func (ip IP) GetIPInDec() string {
-	return fmt.Sprintf("%d.%d.%d.%d", ip.Part1, ip.Part2, ip.Part3, ip.Part4)
+// HostCount follows conventional IPv4 subnet rules and RFC 3021 for /31 links.
+// It describes subnet arithmetic, not address allocation or reachability policy.
+func (address IP) HostCount() uint64 {
+	count := uint64(1) << (32 - address.prefix)
+	if address.prefix < 31 {
+		count -= 2
+	}
+	return count
 }
 
-// IINArray Array of IpsInNetwork structs
+func (address IP) GetIPInBin() string {
+	return fmt.Sprintf("%08b.%08b.%08b.%08b", byte(address.address>>24),
+		byte(address.address>>16), byte(address.address>>8), byte(address.address))
+}
+
+func (address IP) GetIPInDec() string {
+	return fmt.Sprintf("%d.%d.%d.%d", byte(address.address>>24),
+		byte(address.address>>16), byte(address.address>>8), byte(address.address))
+}
+
 type IINArray []IpsInNetwork
 
-func (arr IINArray) networkIPIsInTheList(networkIPToCheck IP) bool {
-	for _, v := range arr {
-		if v.Network == networkIPToCheck {
-			return true
-		}
-	}
-	return false
-}
-
-func (arr *IINArray) insertToExistingNetworkIP(networkIP, ipToInsert IP) {
-	for i, v := range *arr {
-		if v.Network == networkIP {
-			v.IPs = append(v.IPs, ipToInsert)
-			(*arr)[i].IPs = v.IPs
-		}
-	}
-}
-
-// IpsInNetwork stores ips which are in the same network
 type IpsInNetwork struct {
 	Network IP
 	IPs     []IP
 }
 
-// SortIpsByNetworks sorts ips by it's network parts
-func SortIpsByNetworks(ips []IP) IINArray {
-	var networksIps IINArray
-	for _, ip := range ips {
-		if networksIps.networkIPIsInTheList(ip.GetNetworkPart()) {
-			networksIps.insertToExistingNetworkIP(ip.GetNetworkPart(), ip)
+// SortIpsByNetworks groups addresses in expected linear time. Despite the legacy
+// name, groups retain first-seen order, and addresses retain their original order.
+func SortIpsByNetworks(addresses []IP) IINArray {
+	var groups IINArray
+	positions := make(map[IP]int)
+	for _, address := range addresses {
+		network := address.GetNetworkPart()
+		if position, exists := positions[network]; exists {
+			groups[position].IPs = append(groups[position].IPs, address)
 		} else {
-			networksIps = append(networksIps, IpsInNetwork{Network: ip.GetNetworkPart(), IPs: []IP{ip}})
+			positions[network] = len(groups)
+			groups = append(groups, IpsInNetwork{Network: network, IPs: []IP{address}})
 		}
 	}
-	return networksIps
+	return groups
 }
