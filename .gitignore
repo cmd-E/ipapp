@@ -1,1 +1,5 @@
-ipapp*
+/ipapp
+/ipapp.exe
+/.artifacts/
+__pycache__/
+*.pyc

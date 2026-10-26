@@ -1,0 +1,6 @@
+{
+  "minimumStatementPercent": 99,
+  "packages": {
+    "ipapp/packages/ip/": 100
+  }
+}

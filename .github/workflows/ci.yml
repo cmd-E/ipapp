@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux Go 1.26
+            id: linux-go-1.26
+            os: ubuntu-24.04
+            go: '1.26.x'
+            cgo: '1'
+            race: '-race'
+          - name: Linux Go 1.27
+            id: linux-go-1.27
+            os: ubuntu-24.04
+            go: '1.27.x'
+            cgo: '1'
+            race: '-race'
+          - name: Windows Go 1.27
+            id: windows-go-1.27
+            os: windows-2022
+            go: '1.27.x'
+            cgo: '0'
+            race: ''
+    env:
+      CGO_ENABLED: ${{ matrix.cgo }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false # Standard library only; there is no go.sum.
+
+      - name: Verify formatting and static checks
+        run: |
+          go mod verify
+          test -z "$(gofmt -l $(git ls-files '*.go'))"
+          go vet ./...
+
+      - name: Build and run unit and CLI integration tests
+        env:
+          RACE_FLAG: ${{ matrix.race }}
+        run: |
+          mkdir -p .artifacts
+          go build ./...
+          race_args=()
+          if [[ -n "$RACE_FLAG" ]]; then race_args+=("$RACE_FLAG"); fi
+          go test "${race_args[@]}" -count=1 -coverpkg=./... -coverprofile=.artifacts/coverage.out -json ./... > .artifacts/tests.json
+
+      - name: Verify coverage gate
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Enforce and publish coverage
+        run: |
+          go tool cover -func=.artifacts/coverage.out | tee .artifacts/coverage-summary.txt
+          go tool cover -html=.artifacts/coverage.out -o .artifacts/coverage.html
+          python tests/check_coverage.py
+          cat .artifacts/coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fuzz parser boundaries
+        if: ${{ matrix.id == 'linux-go-1.27' }}
+        run: |
+          go test -run='^$' -fuzz='^FuzzDecimalParsing$' -fuzztime=10s -parallel=2 ./packages/ip | tee .artifacts/fuzz-decimal.txt
+          go test -run='^$' -fuzz='^FuzzBinaryParsing$' -fuzztime=10s -parallel=2 ./packages/ip | tee .artifacts/fuzz-binary.txt
+
+      - name: Upload test results and coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-${{ matrix.id }}
+          path: |
+            .artifacts/tests.json
+            .artifacts/coverage*
+            .artifacts/fuzz-*.txt
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+  codeql:
+    name: CodeQL (go)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: go
+          build-mode: manual
+          queries: security-extended
+      - name: Build for analysis
+        run: go build ./...
+      - name: Analyze and upload findings
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:go

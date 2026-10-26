@@ -23,7 +23,10 @@ func TestGetMinIPInNetwork(t *testing.T) {
 		{"151.205.197.104", 32, "151.205.197.104"},
 	}
 	for i, test := range tests {
-		testedIP := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		testedIP, err := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res := testedIP.GetMinIPInNetwork(); res.GetIPInDec() != test.expectedIP {
 			t.Errorf("Test: %d. Expected: %s, got: %v", i+1, test.expectedIP, res)
 		}
@@ -48,7 +51,10 @@ func TestGetMaxIPInNetwork(t *testing.T) {
 		{"151.205.197.104", 32, "151.205.197.104"},
 	}
 	for i, test := range tests {
-		testedIP := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		testedIP, err := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res := testedIP.GetMaxIPInNetwork(); res.GetIPInDec() != test.expectedIP {
 			t.Errorf("Test: %d. Expected: %s, got: %v", i+1, test.expectedIP, res)
 		}
@@ -73,7 +79,10 @@ func TestGetBroadcastAddress(t *testing.T) {
 		{"151.205.197.104", 32, "151.205.197.104"},
 	}
 	for i, test := range tests {
-		testedIP := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		testedIP, err := ip.ParseIPFromDecimalString(test.networkIP, test.mask)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if res := testedIP.GetBroadcastAddress(); res.GetIPInDec() != test.expectedIP {
 			t.Errorf("Test: %d. Expected: %s, got: %v", i+1, test.expectedIP, res)
 		}
